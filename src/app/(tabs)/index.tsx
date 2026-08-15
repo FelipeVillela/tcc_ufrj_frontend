@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useRef } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,12 +8,23 @@ import { MessageBubble } from '@/components/chat/message-bubble';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PrimaryButton } from '@/components/ui/primary-button';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { ChatMessage, useChat } from '@/hooks/use-chat';
+import { PixPronto } from '@/services/chat-api.types';
 
 export default function ChatScreen() {
-  const { messages, isSending, send } = useChat();
+  const { messages, isSending, isFinished, send, reset } = useChat();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  function irParaEnvio(pix: PixPronto) {
+    router.push({
+      // Os parâmetros trafegam como texto na URL; a tela de destino converte
+      // o valor de volta para número.
+      pathname: '/confirmar-pix',
+      params: { nome: pix.nome, chavePix: pix.chavePix, valor: String(pix.valor) },
+    });
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -28,7 +40,9 @@ export default function ChatScreen() {
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <MessageBubble message={item} />}
+          renderItem={({ item }) => (
+            <MessageBubble message={item} onConfirmarPix={irParaEnvio} />
+          )}
           contentContainerStyle={styles.listContent}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ListFooterComponent={isSending ? <TypingIndicator /> : null}
@@ -38,7 +52,16 @@ export default function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={BottomTabInset}
           style={styles.composerWrapper}>
-          <ChatComposer onSend={send} disabled={isSending} />
+          {isFinished ? (
+            <PrimaryButton
+              label="Nova conversa"
+              variant="secondary"
+              testID="botao-nova-conversa"
+              onPress={reset}
+            />
+          ) : (
+            <ChatComposer onSend={send} disabled={isSending} />
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -59,7 +82,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Spacing.three,
-    paddingTop: Platform.select({ web: Spacing.six, default: Spacing.two }),
+    paddingTop: Platform.select({ web: Spacing.four, default: Spacing.two }),
     paddingBottom: Spacing.three,
     gap: Spacing.half,
   },

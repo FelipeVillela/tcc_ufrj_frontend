@@ -3,28 +3,65 @@ import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PrimaryButton } from '@/components/ui/primary-button';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ChatMessage } from '@/hooks/use-chat';
+import { PixPronto } from '@/services/chat-api.types';
 
-function formatarMoeda(valor: number) {
+export function formatarMoeda(valor: number) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  onConfirmarPix,
+}: {
+  message: ChatMessage;
+  onConfirmarPix?: (pix: PixPronto) => void;
+}) {
+  const theme = useTheme();
   const isUser = message.role === 'user';
 
   if (message.kind === 'pix-ready' && message.pix) {
+    const { nome, chavePix, valor } = message.pix;
+
     return (
-      <ThemedView type="backgroundElement" style={[styles.bubble, styles.assistantBubble, styles.pixCard]}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.bubble, styles.assistantBubble, styles.pixCard, { borderColor: theme.success }]}>
         <ThemedView style={styles.pixCardHeader} type="backgroundElement">
-          <Ionicons name="checkmark-circle" size={18} color="#2e9e5b" />
-          <ThemedText type="smallBold">Intenção reconhecida</ThemedText>
+          <Ionicons name="checkmark-circle" size={18} color={theme.success} />
+          <ThemedText type="smallBold">Pix pronto para envio</ThemedText>
         </ThemedView>
-        <ThemedText type="small" themeColor="textSecondary">
-          Pix pronto para seguir para a tela de envio:
-        </ThemedText>
-        <ThemedText type="default">Destinatário: {message.pix.destinatario}</ThemedText>
-        <ThemedText type="default">Valor: {formatarMoeda(message.pix.valor)}</ThemedText>
+
+        <ThemedView type="backgroundElement" style={styles.linha}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Nome
+          </ThemedText>
+          <ThemedText type="default">{nome}</ThemedText>
+        </ThemedView>
+
+        <ThemedView type="backgroundElement" style={styles.linha}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Chave Pix
+          </ThemedText>
+          <ThemedText type="default">{chavePix}</ThemedText>
+        </ThemedView>
+
+        <ThemedView type="backgroundElement" style={styles.linha}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Valor
+          </ThemedText>
+          <ThemedText type="default">{formatarMoeda(valor)}</ThemedText>
+        </ThemedView>
+
+        <PrimaryButton
+          label="Enviar Pix"
+          testID="botao-enviar-pix"
+          onPress={() => onConfirmarPix?.(message.pix!)}
+          style={styles.botao}
+        />
       </ThemedView>
     );
   }
@@ -35,7 +72,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       style={[
         styles.bubble,
         isUser ? styles.userBubble : styles.assistantBubble,
-        message.kind === 'error' && styles.errorBubble,
+        message.kind === 'error' && [styles.errorBubble, { borderColor: theme.danger }],
       ]}>
       <ThemedText type="default" themeColor={message.kind === 'error' ? 'textSecondary' : 'text'}>
         {message.text}
@@ -61,16 +98,22 @@ const styles = StyleSheet.create({
   },
   errorBubble: {
     borderWidth: 1,
-    borderColor: '#c94b4b',
   },
   pixCard: {
-    gap: Spacing.half,
+    minWidth: '82%',
+    gap: Spacing.two,
     borderWidth: 1,
-    borderColor: '#2e9e5b',
+    paddingVertical: Spacing.three,
   },
   pixCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
+  },
+  linha: {
+    gap: Spacing.half,
+  },
+  botao: {
+    marginTop: Spacing.one,
   },
 });

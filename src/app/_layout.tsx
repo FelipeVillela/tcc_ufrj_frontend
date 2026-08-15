@@ -1,9 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+
+// Garante que a pilha sempre tenha as abas na base: sem isso, abrir
+// /confirmar-pix direto por deep link deixaria a tela sem botão de voltar.
+export const unstable_settings = { anchor: '(tabs)' };
 
 export default function RootLayout() {
   const scheme = useColorScheme();
@@ -11,32 +14,26 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Tabs
+      <Stack
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.text,
-          tabBarInactiveTintColor: colors.textSecondary,
-          tabBarStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: colors.background },
         }}>
-        <Tabs.Screen
-          name="index"
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="confirmar-pix"
           options={{
-            title: 'Chat',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
-            ),
+            headerShown: true,
+            title: 'Confirmar Pix',
+            headerBackTitle: 'Voltar',
+            // O tema padrão do React Navigation usa um cinza que destoa do
+            // branco puro das telas; por isso as cores vêm explícitas.
+            headerTintColor: colors.text,
+            headerStyle: { backgroundColor: colors.background },
+            headerShadowVisible: false,
           }}
         />
-        <Tabs.Screen
-          name="explore"
-          options={{
-            title: 'Explore',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="compass-outline" size={size} color={color} />
-            ),
-          }}
-        />
-      </Tabs>
+      </Stack>
     </ThemeProvider>
   );
 }

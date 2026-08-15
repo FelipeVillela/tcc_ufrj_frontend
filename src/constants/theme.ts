@@ -7,6 +7,8 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+// ThemeColor é a interseção das chaves de light e dark: um token declarado em
+// apenas um dos mapas some silenciosamente. Mantenha os dois em sincronia.
 export const Colors = {
   light: {
     text: '#000000',
@@ -14,6 +16,12 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    accent: '#3c87f7',
+    /** Texto/ícone sobre uma superfície 'accent'. */
+    onAccent: '#ffffff',
+    success: '#2e9e5b',
+    danger: '#c94b4b',
+    disabled: '#C8CBD0',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +29,11 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    accent: '#4b93ff',
+    onAccent: '#ffffff',
+    success: '#3fb473',
+    danger: '#e06a6a',
+    disabled: '#3A3D42',
   },
 } as const;
 

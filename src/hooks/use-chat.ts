@@ -1,85 +1,98 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { isPixExecutePayload, pollMessage, sendMessage } from '@/services/chat-api';
-import { PixDados } from '@/services/chat-api.types';
+import { CURRENT_USER_ID } from '@/services/api-config';
+import { ChatApiError, clearHistory, pollMessage, sendMessage } from '@/services/chat-api';
+import { PixDados, PixPronto } from '@/services/chat-api.types';
+import { interpretarResposta } from '@/services/chat-response';
 
-const MOCK_USER_ID = 1;
+const SAUDACAO = 'Oi! Eu ajudo você a enviar um Pix. Para quem você quer mandar e quanto?';
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   kind: 'text' | 'pix-ready' | 'error';
   text?: string;
-  pix?: { destinatario: string; valor: number };
+  pix?: PixPronto;
 }
 
 function criaId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function mensagemInicial(): ChatMessage {
+  return { id: criaId(), role: 'assistant', kind: 'text', text: SAUDACAO };
+}
+
 export function useChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: criaId(),
-      role: 'assistant',
-      kind: 'text',
-      text: 'Oi! Eu ajudo você a enviar um Pix. Para quem você quer mandar e quanto?',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([mensagemInicial()]);
   const [isSending, setIsSending] = useState(false);
+  /** A conversa acaba quando a IA manda executar o Pix ou reporta erro. */
+  const [isFinished, setIsFinished] = useState(false);
+
+  // Fica em ref porque só é lido dentro do envio — não precisa re-renderizar.
   const dadosRef = useRef<PixDados | null>(null);
 
-  const send = useCallback(async (texto: string) => {
-    const mensagem = texto.trim();
-    if (!mensagem || isSending) return;
+  const adicionar = useCallback((mensagem: ChatMessage) => {
+    setMessages((atual) => [...atual, mensagem]);
+  }, []);
 
-    setMessages((atual) => [...atual, { id: criaId(), role: 'user', kind: 'text', text: mensagem }]);
-    setIsSending(true);
+  const send = useCallback(
+    async (texto: string) => {
+      const mensagem = texto.trim();
+      if (!mensagem || isSending || isFinished) return;
+
+      adicionar({ id: criaId(), role: 'user', kind: 'text', text: mensagem });
+      setIsSending(true);
+
+      try {
+        const messageId = await sendMessage({
+          user_id: CURRENT_USER_ID,
+          context: { mensagem, dados: dadosRef.current },
+        });
+
+        const resultado = await pollMessage(messageId);
+        const outcome = interpretarResposta(resultado.response);
+
+        if (outcome.kind === 'execute') {
+          dadosRef.current = null;
+          setIsFinished(true);
+          adicionar({ id: criaId(), role: 'assistant', kind: 'pix-ready', pix: outcome.pix });
+          return;
+        }
+
+        if (outcome.kind === 'error') {
+          setIsFinished(true);
+          adicionar({ id: criaId(), role: 'assistant', kind: 'error', text: outcome.mensagem });
+          return;
+        }
+
+        dadosRef.current = outcome.dados;
+        adicionar({ id: criaId(), role: 'assistant', kind: 'text', text: outcome.mensagem });
+      } catch (erro) {
+        const texto =
+          erro instanceof ChatApiError ? erro.message : 'Falha ao conectar com o assistente.';
+        setIsFinished(true);
+        adicionar({ id: criaId(), role: 'assistant', kind: 'error', text: texto });
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [adicionar, isFinished, isSending],
+  );
+
+  /** Recomeça do zero, apagando também a memória da conversa no servidor. */
+  const reset = useCallback(async () => {
+    dadosRef.current = null;
+    setIsFinished(false);
+    setMessages([mensagemInicial()]);
 
     try {
-      const { message_id } = await sendMessage({
-        user_id: MOCK_USER_ID,
-        context: { mensagem, dados: dadosRef.current },
-      });
-
-      const resultado = await pollMessage(message_id);
-
-      const response = resultado.response;
-
-      if (resultado.status === 'DONE' && response) {
-        if (isPixExecutePayload(response)) {
-          dadosRef.current = null;
-          setMessages((atual) => [
-            ...atual,
-            { id: criaId(), role: 'assistant', kind: 'pix-ready', pix: response.pix },
-          ]);
-        } else {
-          dadosRef.current = response.dados;
-          setMessages((atual) => [
-            ...atual,
-            { id: criaId(), role: 'assistant', kind: 'text', text: response.mensagem },
-          ]);
-        }
-      } else {
-        setMessages((atual) => [
-          ...atual,
-          {
-            id: criaId(),
-            role: 'assistant',
-            kind: 'error',
-            text: resultado.error ?? 'Não consegui processar sua mensagem agora.',
-          },
-        ]);
-      }
+      await clearHistory();
     } catch {
-      setMessages((atual) => [
-        ...atual,
-        { id: criaId(), role: 'assistant', kind: 'error', text: 'Falha ao conectar com o assistente.' },
-      ]);
-    } finally {
-      setIsSending(false);
+      // Se o servidor não responder, a conversa local já foi reiniciada; o
+      // histórico remoto expira sozinho por TTL.
     }
-  }, [isSending]);
+  }, []);
 
-  return { messages, isSending, send };
+  return { messages, isSending, isFinished, send, reset };
 }

@@ -52,7 +52,7 @@ export function ChatComposer({
         <Ionicons
           name="arrow-up-circle"
           size={28}
-          color={disabled || !texto.trim() ? theme.textSecondary : '#3c87f7'}
+          color={disabled || !texto.trim() ? theme.textSecondary : theme.accent}
         />
       </Pressable>
     </ThemedView>
