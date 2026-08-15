@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { CURRENT_USER_ID } from '@/services/api-config';
+import { useAuth } from '@/contexts/auth-context';
 import { ChatApiError, clearHistory, pollMessage, sendMessage } from '@/services/chat-api';
 import { PixDados, PixPronto } from '@/services/chat-api.types';
 import { interpretarResposta } from '@/services/chat-response';
@@ -24,6 +24,11 @@ function mensagemInicial(): ChatMessage {
 }
 
 export function useChat() {
+  // A conversa é guardada por usuário no servidor, então o chat sempre opera
+  // sobre a conta de quem está logado.
+  const { usuario } = useAuth();
+  const userId = usuario?.id;
+
   const [messages, setMessages] = useState<ChatMessage[]>([mensagemInicial()]);
   const [isSending, setIsSending] = useState(false);
   /** A conversa acaba quando a IA manda executar o Pix ou reporta erro. */
@@ -39,14 +44,14 @@ export function useChat() {
   const send = useCallback(
     async (texto: string) => {
       const mensagem = texto.trim();
-      if (!mensagem || isSending || isFinished) return;
+      if (!mensagem || isSending || isFinished || !userId) return;
 
       adicionar({ id: criaId(), role: 'user', kind: 'text', text: mensagem });
       setIsSending(true);
 
       try {
         const messageId = await sendMessage({
-          user_id: CURRENT_USER_ID,
+          user_id: userId,
           context: { mensagem, dados: dadosRef.current },
         });
 
@@ -77,7 +82,7 @@ export function useChat() {
         setIsSending(false);
       }
     },
-    [adicionar, isFinished, isSending],
+    [adicionar, isFinished, isSending, userId],
   );
 
   /** Recomeça do zero, apagando também a memória da conversa no servidor. */
@@ -86,13 +91,15 @@ export function useChat() {
     setIsFinished(false);
     setMessages([mensagemInicial()]);
 
+    if (!userId) return;
+
     try {
-      await clearHistory();
+      await clearHistory(userId);
     } catch {
       // Se o servidor não responder, a conversa local já foi reiniciada; o
       // histórico remoto expira sozinho por TTL.
     }
-  }, []);
+  }, [userId]);
 
   return { messages, isSending, isFinished, send, reset };
 }

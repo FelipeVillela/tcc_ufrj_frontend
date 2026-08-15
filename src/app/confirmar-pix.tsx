@@ -3,12 +3,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
-import { formatarMoeda } from '@/components/chat/message-bubble';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { formatarMoeda } from '@/utils/moeda';
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
@@ -23,10 +24,13 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
 
 export default function ConfirmarPixScreen() {
   const theme = useTheme();
+  const { debitar } = useAuth();
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
 
   // Parâmetros de rota chegam sempre como texto — e são omitidos quando nulos.
+  // 'nome' é opcional: só o chat consegue resolver o destinatário (pelos
+  // contatos); o envio manual identifica pela chave Pix e não exibe nome.
   const { nome, chavePix, valor } = useLocalSearchParams<{
     nome?: string;
     chavePix?: string;
@@ -34,12 +38,14 @@ export default function ConfirmarPixScreen() {
   }>();
 
   const valorNumerico = Number(valor);
-  const dadosValidos = !!nome && !!chavePix && Number.isFinite(valorNumerico) && valorNumerico > 0;
+  const dadosValidos = !!chavePix && Number.isFinite(valorNumerico) && valorNumerico > 0;
 
   async function confirmar() {
     setEnviando(true);
-    // Simulação: o serviço de transferência ainda não existe na arquitetura.
+    // Simulação: não existe serviço de transferência na arquitetura. O saldo
+    // é debitado só no app — e pode ficar negativo, por decisão de escopo.
     await new Promise((resolve) => setTimeout(resolve, 900));
+    debitar(valorNumerico);
     setEnviando(false);
     setEnviado(true);
   }
@@ -50,9 +56,9 @@ export default function ConfirmarPixScreen() {
         <ThemedView style={styles.conteudo}>
           <ThemedText type="subtitle">Dados incompletos</ThemedText>
           <ThemedText type="default" themeColor="textSecondary">
-            Não recebemos todas as informações do Pix. Volte e tente novamente pelo chat.
+            Não recebemos a chave Pix e o valor do envio. Volte e tente novamente.
           </ThemedText>
-          <PrimaryButton label="Voltar ao chat" variant="secondary" onPress={() => router.back()} />
+          <PrimaryButton label="Voltar" variant="secondary" onPress={() => router.back()} />
         </ThemedView>
       </ThemedView>
     );
@@ -65,11 +71,11 @@ export default function ConfirmarPixScreen() {
           <Ionicons name="checkmark-circle" size={64} color={theme.success} />
           <ThemedText type="subtitle">Pix enviado!</ThemedText>
           <ThemedText type="default" themeColor="textSecondary" style={styles.textoCentral}>
-            {formatarMoeda(valorNumerico)} para {nome}
+            {formatarMoeda(valorNumerico)} para {nome ?? chavePix}
           </ThemedText>
           <PrimaryButton
-            label="Voltar ao chat"
-            testID="botao-voltar-chat"
+            label="Voltar ao início"
+            testID="botao-voltar-inicio"
             onPress={() => router.dismissTo('/')}
             style={styles.botaoLargo}
           />
@@ -87,7 +93,7 @@ export default function ConfirmarPixScreen() {
           </ThemedText>
 
           <ThemedView type="backgroundElement" style={styles.card}>
-            <Linha rotulo="Nome" valor={nome} />
+            {!!nome && <Linha rotulo="Nome" valor={nome} />}
             <Linha rotulo="Chave Pix" valor={chavePix} />
             <Linha rotulo="Valor" valor={formatarMoeda(valorNumerico)} />
           </ThemedView>
@@ -121,6 +127,9 @@ const styles = StyleSheet.create({
   conteudo: {
     width: '100%',
     maxWidth: MaxContentWidth,
+    // Centraliza em telas largas (web). Os estados de sucesso e de dados
+    // inválidos não passam pelo ScrollView, então não herdam o alignItems dele.
+    alignSelf: 'center',
     padding: Spacing.three,
     gap: Spacing.three,
   },

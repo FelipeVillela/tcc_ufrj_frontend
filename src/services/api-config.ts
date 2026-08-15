@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
- * Resolve o endereço do chat service.
+ * Resolve o endereço dos serviços do backend.
  *
  * O ponto delicado é o Expo Go em celular físico: ali 'localhost' é o próprio
  * telefone, não a máquina de desenvolvimento. Como o Metro já roda no IP da
@@ -10,7 +10,8 @@ import { Platform } from 'react-native';
  * preciso editar um IP na mão a cada troca de rede.
  */
 
-const CHAT_API_PORT = 8000;
+const PORTA_CHAT = 8000;
+const PORTA_USERS = 8080;
 
 /**
  * Host do Metro, sem esquema (ex.: '192.168.0.42:8081'). Vem preenchido no
@@ -26,40 +27,51 @@ function getMetroHost(): string | undefined {
   return match?.[1] || undefined;
 }
 
-function resolveChatApiBaseUrl(): string {
-  // 1) Override explícito. Precisa ser esta expressão literal: o Babel do Expo
-  // só substitui process.env.EXPO_PUBLIC_* quando escrito exatamente assim.
-  const override = process.env.EXPO_PUBLIC_CHAT_API_URL;
+function resolveBaseUrl(porta: number, override: string | undefined): string {
+  // 1) Override explícito, quando informado.
   if (override) return override.replace(/\/+$/, '');
 
-  // 2) Nativo em desenvolvimento: mesmo IP do Metro, porta da API.
+  // 2) Nativo em desenvolvimento: mesmo IP do Metro, porta do serviço.
   if (Platform.OS !== 'web') {
     const host = getMetroHost();
-    if (host) return `http://${host}:${CHAT_API_PORT}`;
+    if (host) return `http://${host}:${porta}`;
   }
 
   // 3) Web: mesmo host que serviu a página.
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-    return `${window.location.protocol}//${window.location.hostname}:${CHAT_API_PORT}`;
+    return `${window.location.protocol}//${window.location.hostname}:${porta}`;
   }
 
-  return `http://localhost:${CHAT_API_PORT}`;
+  return `http://localhost:${porta}`;
 }
 
-let cache: string | undefined;
-
 /**
- * Resolvido de forma preguiçosa (e não em uma constante de módulo) porque o
+ * Resolvido de forma preguiçosa (e não em constantes de módulo) porque o
  * app.json usa web.output 'static': as rotas são pré-renderizadas no Node, onde
  * 'window' não existe.
  */
-export function getChatApiBaseUrl(): string {
-  if (cache === undefined) {
-    cache = resolveChatApiBaseUrl();
-    if (__DEV__) console.log('[api] chat service em', cache);
-  }
-  return cache;
+function criarResolvedor(nome: string, porta: number, override: () => string | undefined) {
+  let cache: string | undefined;
+
+  return function getBaseUrl(): string {
+    if (cache === undefined) {
+      cache = resolveBaseUrl(porta, override());
+      if (__DEV__) console.log(`[api] ${nome} em`, cache);
+    }
+    return cache;
+  };
 }
 
-/** Usuário fixo enquanto não existe login (o seed do users-service cria o id 1). */
-export const CURRENT_USER_ID = 1;
+// As leituras de process.env precisam ser estas expressões literais: o Babel do
+// Expo só substitui process.env.EXPO_PUBLIC_* quando escrito exatamente assim.
+export const getChatApiBaseUrl = criarResolvedor(
+  'chat service',
+  PORTA_CHAT,
+  () => process.env.EXPO_PUBLIC_CHAT_API_URL,
+);
+
+export const getUsersApiBaseUrl = criarResolvedor(
+  'users service',
+  PORTA_USERS,
+  () => process.env.EXPO_PUBLIC_USERS_API_URL,
+);

@@ -1,9 +1,10 @@
-import { CURRENT_USER_ID, getChatApiBaseUrl } from '@/services/api-config';
+import { getChatApiBaseUrl } from '@/services/api-config';
 import {
   MessageStatusResponse,
   SendMessageRequest,
   SendMessageResponse,
 } from '@/services/chat-api.types';
+import { ApiError, criarCliente } from '@/services/http';
 
 export * from '@/services/chat-api.types';
 
@@ -14,8 +15,6 @@ export * from '@/services/chat-api.types';
  *   DELETE /messages/history/{user_id} -> { status: "CLEARED" }
  */
 
-const TIMEOUT_REQUISICAO_MS = 15_000;
-
 /**
  * Uma resposta passa por fila + Gemini (medido em ~3min numa chamada só) e o
  * worker ainda repete em caso de 429. O teto é o próprio TTL do cache no Redis
@@ -25,34 +24,10 @@ const TIMEOUT_REQUISICAO_MS = 15_000;
 const TIMEOUT_POLLING_MS = 300_000;
 const INTERVALO_POLLING_MS = 800;
 
-export class ChatApiError extends Error {}
+/** Mantido como alias para quem já trata erros do chat por este nome. */
+export const ChatApiError = ApiError;
 
-async function requisitar<T>(caminho: string, init?: RequestInit): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_REQUISICAO_MS);
-
-  try {
-    const resposta = await fetch(`${getChatApiBaseUrl()}${caminho}`, {
-      ...init,
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
-    });
-
-    if (!resposta.ok) {
-      throw new ChatApiError(`O servidor respondeu ${resposta.status}.`);
-    }
-
-    return (await resposta.json()) as T;
-  } catch (erro) {
-    if (erro instanceof ChatApiError) throw erro;
-    if (erro instanceof Error && erro.name === 'AbortError') {
-      throw new ChatApiError('O servidor demorou demais para responder.');
-    }
-    throw new ChatApiError('Não foi possível falar com o assistente.');
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+const requisitar = criarCliente(getChatApiBaseUrl, 'Não foi possível falar com o assistente.');
 
 /** Enfileira a mensagem e devolve o id para acompanhar o processamento. */
 export async function sendMessage(req: SendMessageRequest): Promise<string> {
@@ -63,7 +38,7 @@ export async function sendMessage(req: SendMessageRequest): Promise<string> {
 
   // O endpoint devolve 200 com {message, detail} quando falha ao enfileirar.
   if (!resposta.message_id) {
-    throw new ChatApiError(resposta.detail ?? resposta.message ?? 'O assistente não aceitou a mensagem.');
+    throw new ApiError(resposta.detail ?? resposta.message ?? 'O assistente não aceitou a mensagem.');
   }
 
   return resposta.message_id;
@@ -87,13 +62,13 @@ export async function pollMessage(messageId: string): Promise<MessageStatusRespo
     if (resultado.status === 'DONE') return resultado;
 
     if (resultado.status === 'ERROR') {
-      throw new ChatApiError(resultado.error ?? 'O assistente não conseguiu responder.');
+      throw new ApiError(resultado.error ?? 'O assistente não conseguiu responder.');
     }
 
     // O POST grava PENDING antes de enfileirar, então NOT_FOUND aqui significa
     // que o cache expirou — não adianta continuar tentando.
     if (resultado.status === 'NOT_FOUND') {
-      throw new ChatApiError('A resposta expirou antes de chegar.');
+      throw new ApiError('A resposta expirou antes de chegar.');
     }
 
     await esperar(INTERVALO_POLLING_MS);
@@ -103,6 +78,6 @@ export async function pollMessage(messageId: string): Promise<MessageStatusRespo
 }
 
 /** Apaga a memória da conversa no servidor (usado no "Nova conversa"). */
-export async function clearHistory(userId: number = CURRENT_USER_ID): Promise<void> {
+export async function clearHistory(userId: number): Promise<void> {
   await requisitar(`/messages/history/${userId}`, { method: 'DELETE' });
 }

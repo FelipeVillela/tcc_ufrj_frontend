@@ -8,10 +8,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ChatMessage } from '@/hooks/use-chat';
 import { PixPronto } from '@/services/chat-api.types';
-
-export function formatarMoeda(valor: number) {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
+import { formatarMoeda } from '@/utils/moeda';
 
 export function MessageBubble({
   message,
