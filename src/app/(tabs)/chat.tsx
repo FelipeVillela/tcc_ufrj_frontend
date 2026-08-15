@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useRef } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { FlatList, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChatComposer } from '@/components/chat/chat-composer';
@@ -11,11 +11,17 @@ import { ThemedView } from '@/components/themed-view';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { ChatMessage, useChat } from '@/hooks/use-chat';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { PixPronto } from '@/services/chat-api.types';
 
 export default function ChatScreen() {
   const { messages, isSending, isFinished, send, reset } = useChat();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Com o teclado aberto, o espaço reservado para a barra de abas vira espaço
+  // para o teclado: a barra fica atrás dele de qualquer forma.
+  const alturaTeclado = useKeyboardHeight();
+  const espacoInferior = Math.max(BottomTabInset, alturaTeclado);
 
   function irParaEnvio(pix: PixPronto) {
     router.push({
@@ -28,7 +34,9 @@ export default function ChatScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView
+        style={[styles.safeArea, { paddingBottom: espacoInferior }]}
+        edges={['top', 'left', 'right']}>
         <ThemedView style={styles.header}>
           <ThemedText type="subtitle">Assistente Pix</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -44,14 +52,15 @@ export default function ChatScreen() {
             <MessageBubble message={item} onConfirmarPix={irParaEnvio} />
           )}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          // A lista encolhe quando o teclado abre (e quando o campo de texto
+          // cresce): reancorar na última mensagem mantém a conversa visível.
+          onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={isSending ? <TypingIndicator /> : null}
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={BottomTabInset}
-          style={styles.composerWrapper}>
+        <ThemedView style={styles.composerWrapper}>
           {isFinished ? (
             <PrimaryButton
               label="Nova conversa"
@@ -62,7 +71,7 @@ export default function ChatScreen() {
           ) : (
             <ChatComposer onSend={send} disabled={isSending} />
           )}
-        </KeyboardAvoidingView>
+        </ThemedView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -78,7 +87,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingBottom: BottomTabInset,
+    // O paddingBottom é dinâmico: reserva a barra de abas ou o teclado.
   },
   header: {
     paddingHorizontal: Spacing.three,

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +9,7 @@ import { LabeledInput } from '@/components/ui/labeled-input';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { formatarMoeda } from '@/utils/moeda';
 
 /**
@@ -24,6 +25,7 @@ export default function EnviarPixScreen() {
   const { usuario } = useAuth();
   const [chavePix, setChavePix] = useState('');
   const [valorTexto, setValorTexto] = useState('');
+  const alturaTeclado = useKeyboardHeight();
 
   const valor = digitosParaValor(valorTexto);
   const chaveValida = chavePix.trim().length > 0;
@@ -52,54 +54,53 @@ export default function EnviarPixScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={BottomTabInset}
-          style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <ThemedView style={styles.cabecalho}>
-              <ThemedText type="subtitle">Enviar Pix</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Informe a chave do destinatário e o valor
-              </ThemedText>
-            </ThemedView>
+      {/* O teclado cobre a tela sem redimensioná-la (edge-to-edge), então é o
+          padding que encolhe a área rolável e deixa o formulário acessível. */}
+      <SafeAreaView
+        style={[styles.safeArea, { paddingBottom: alturaTeclado }]}
+        edges={['top', 'left', 'right']}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <ThemedView style={styles.cabecalho}>
+            <ThemedText type="subtitle">Enviar Pix</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Informe a chave do destinatário e o valor
+            </ThemedText>
+          </ThemedView>
 
-            <LabeledInput
-              label="Chave Pix"
-              testID="input-chave-pix"
-              value={chavePix}
-              onChangeText={setChavePix}
-              placeholder="E-mail, CPF, telefone ou chave aleatória"
-              autoCapitalize="none"
-              autoCorrect={false}
-              inputMode="email"
-            />
+          <LabeledInput
+            label="Chave Pix"
+            testID="input-chave-pix"
+            value={chavePix}
+            onChangeText={setChavePix}
+            placeholder="E-mail, CPF, telefone ou chave aleatória"
+            autoCapitalize="none"
+            autoCorrect={false}
+            inputMode="email"
+          />
 
-            <LabeledInput
-              label="Valor"
-              testID="input-valor"
-              value={valor > 0 ? formatarMoeda(valor) : ''}
-              onChangeText={setValorTexto}
-              placeholder="R$ 0,00"
-              keyboardType="number-pad"
-              inputMode="numeric"
-            />
+          <LabeledInput
+            label="Valor"
+            testID="input-valor"
+            value={valor > 0 ? formatarMoeda(valor) : ''}
+            onChangeText={setValorTexto}
+            placeholder="R$ 0,00"
+            keyboardType="number-pad"
+            inputMode="numeric"
+          />
 
-            {!!usuario && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Saldo disponível: {formatarMoeda(usuario.saldo)}
-              </ThemedText>
-            )}
+          {!!usuario && (
+            <ThemedText type="small" themeColor="textSecondary">
+              Saldo disponível: {formatarMoeda(usuario.saldo)}
+            </ThemedText>
+          )}
 
-            <PrimaryButton
-              label="Continuar"
-              testID="botao-continuar"
-              disabled={!podeContinuar}
-              onPress={continuar}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
+          <PrimaryButton
+            label="Continuar"
+            testID="botao-continuar"
+            disabled={!podeContinuar}
+            onPress={continuar}
+          />
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -107,9 +108,6 @@ export default function EnviarPixScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  flex: {
     flex: 1,
   },
   safeArea: {
