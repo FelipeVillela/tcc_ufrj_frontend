@@ -3,7 +3,19 @@
  * O que varia entre eles é só a URL base e a mensagem de falha de rede.
  */
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  /**
+   * Status HTTP, quando a falha veio do servidor. Fica indefinido em erro de
+   * rede ou timeout. Permite tratar casos específicos — 401 na autorização do
+   * Pix, por exemplo — sem depender do texto da mensagem.
+   */
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
 
 const TIMEOUT_PADRAO_MS = 15_000;
 
@@ -36,7 +48,7 @@ export function criarCliente(
 
       if (!resposta.ok) {
         const mensagem = await lerMensagemDeErro(resposta);
-        throw new ApiError(mensagem ?? `O servidor respondeu ${resposta.status}.`);
+        throw new ApiError(mensagem ?? `O servidor respondeu ${resposta.status}.`, resposta.status);
       }
 
       // 204 e afins não têm corpo — chamar .json() aqui estouraria.

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { ApiError } from '@/services/http';
 import { login as loginNaApi, Usuario } from '@/services/users-api';
 
 /**
@@ -30,6 +31,11 @@ interface AuthContextValue {
   /** true enquanto a sessão salva está sendo lida do storage, no boot. */
   carregando: boolean;
   entrar: (email: string, senha: string) => Promise<void>;
+  /**
+   * Revalida a senha do usuário logado. Resolve quando confere e rejeita com
+   * ApiError (status 401) quando não. Usada para autorizar o envio do Pix.
+   */
+  confirmarSenha: (senha: string) => Promise<void>;
   sair: () => Promise<void>;
   /** Aplica um envio ao saldo simulado. Pode deixá-lo negativo, de propósito. */
   debitar: (valor: number) => void;
@@ -78,6 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [guardar],
   );
 
+  // Reusa o POST /login — é a única API de autenticação do serviço — mas
+  // descarta a resposta de propósito: ela traz o saldo real do banco e
+  // sobrescreveria o saldo simulado que o app vem debitando a cada envio.
+  const confirmarSenha = useCallback(
+    async (senha: string) => {
+      if (!usuario) throw new ApiError('Sua sessão expirou. Entre novamente.');
+      await loginNaApi(usuario.email, senha);
+    },
+    [usuario],
+  );
+
   const sair = useCallback(async () => {
     await guardar(null);
   }, [guardar]);
@@ -93,8 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const valor = useMemo(
-    () => ({ usuario, carregando, entrar, sair, debitar }),
-    [usuario, carregando, entrar, sair, debitar],
+    () => ({ usuario, carregando, entrar, confirmarSenha, sair, debitar }),
+    [usuario, carregando, entrar, confirmarSenha, sair, debitar],
   );
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

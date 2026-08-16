@@ -18,6 +18,17 @@ function RootNavigator() {
   // caso contrário a tela de login pisca antes de o usuário ser restaurado.
   if (carregando) return null;
 
+  // As telas do envio ficam fora das abas, com header próprio. O tema padrão
+  // do React Navigation usa um cinza que destoa do branco puro das telas; por
+  // isso as cores vêm explícitas.
+  const opcoesEnvio = {
+    headerShown: true,
+    headerBackTitle: 'Voltar',
+    headerTintColor: colors.text,
+    headerStyle: { backgroundColor: colors.background },
+    headerShadowVisible: false,
+  };
+
   return (
     <Stack
       screenOptions={{
@@ -30,19 +41,8 @@ function RootNavigator() {
 
       <Stack.Protected guard={!!usuario}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="confirmar-pix"
-          options={{
-            headerShown: true,
-            title: 'Confirmar Pix',
-            headerBackTitle: 'Voltar',
-            // O tema padrão do React Navigation usa um cinza que destoa do
-            // branco puro das telas; por isso as cores vêm explícitas.
-            headerTintColor: colors.text,
-            headerStyle: { backgroundColor: colors.background },
-            headerShadowVisible: false,
-          }}
-        />
+        <Stack.Screen name="confirmar-pix" options={{ ...opcoesEnvio, title: 'Confirmar Pix' }} />
+        <Stack.Screen name="autorizar-pix" options={{ ...opcoesEnvio, title: 'Autorizar Pix' }} />
       </Stack.Protected>
     </Stack>
   );
