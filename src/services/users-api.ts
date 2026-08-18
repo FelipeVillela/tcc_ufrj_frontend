@@ -40,3 +40,37 @@ export function login(email: string, senha: string): Promise<Usuario> {
     body: JSON.stringify({ email, senha }),
   });
 }
+
+/** Contato da lista do usuário — espelha o ContactResponse do backend. */
+export interface Contato {
+  id: string;
+  nome: string;
+  chavePix: string;
+  banco: string | null;
+  nomesAlternativos: string[];
+  criadoEm: string;
+  usadoPorUltimoEm: string;
+}
+
+/** Dados enviados ao salvar um contato — espelha o SaveContactRequest. */
+export interface SalvarContatoRequest {
+  nome: string;
+  chavePix: string;
+  banco?: string | null;
+  nomesAlternativos?: string[] | null;
+}
+
+/**
+ * Salva (ou atualiza) o destinatário na lista de contatos do usuário, com a
+ * permissão dele — chamado ao concluir o envio de um Pix pelo chat. O backend
+ * faz upsert pela chave Pix e agrega novos nomes alternativos.
+ */
+export function salvarContato(
+  userId: number,
+  contato: SalvarContatoRequest,
+): Promise<Contato> {
+  return requisitar<Contato>(`/users/${userId}/contacts`, {
+    method: 'POST',
+    body: JSON.stringify(contato),
+  });
+}

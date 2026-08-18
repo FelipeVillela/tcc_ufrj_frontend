@@ -26,9 +26,17 @@ export default function ChatScreen() {
   function irParaEnvio(pix: PixPronto) {
     router.push({
       // Os parâmetros trafegam como texto na URL; a tela de destino converte
-      // o valor de volta para número.
+      // o valor de volta para número (e os nomes alternativos, de JSON).
       pathname: '/confirmar-pix',
-      params: { nome: pix.nome, chavePix: pix.chavePix, valor: String(pix.valor) },
+      params: {
+        nome: pix.nome,
+        chavePix: pix.chavePix,
+        valor: String(pix.valor),
+        ...(pix.banco ? { banco: pix.banco } : {}),
+        ...(pix.nomesAlternativos?.length
+          ? { nomesAlternativos: JSON.stringify(pix.nomesAlternativos) }
+          : {}),
+      },
     });
   }
 

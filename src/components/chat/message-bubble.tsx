@@ -21,7 +21,7 @@ export function MessageBubble({
   const isUser = message.role === 'user';
 
   if (message.kind === 'pix-ready' && message.pix) {
-    const { nome, chavePix, valor } = message.pix;
+    const { nome, chavePix, valor, banco } = message.pix;
 
     return (
       <ThemedView
@@ -45,6 +45,15 @@ export function MessageBubble({
           </ThemedText>
           <ThemedText type="default">{chavePix}</ThemedText>
         </ThemedView>
+
+        {!!banco && (
+          <ThemedView type="backgroundElement" style={styles.linha}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Banco
+            </ThemedText>
+            <ThemedText type="default">{banco}</ThemedText>
+          </ThemedView>
+        )}
 
         <ThemedView type="backgroundElement" style={styles.linha}>
           <ThemedText type="small" themeColor="textSecondary">

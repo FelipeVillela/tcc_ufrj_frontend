@@ -14,10 +14,15 @@ function autorizar(pix: DadosPix) {
   router.push({
     pathname: '/autorizar-pix',
     params: {
-      // 'nome' só existe no fluxo do chat; parâmetro indefinido é descartado.
+      // 'nome', 'banco' e 'nomesAlternativos' só existem no fluxo do chat;
+      // parâmetro indefinido é descartado.
       ...(pix.nome ? { nome: pix.nome } : {}),
       chavePix: pix.chavePix,
       valor: String(pix.valor),
+      ...(pix.banco ? { banco: pix.banco } : {}),
+      ...(pix.nomesAlternativos?.length
+        ? { nomesAlternativos: JSON.stringify(pix.nomesAlternativos) }
+        : {}),
     },
   });
 }
@@ -49,6 +54,7 @@ export default function ConfirmarPixScreen() {
           <ThemedView type="backgroundElement" style={styles.card}>
             {!!pix.nome && <Linha rotulo="Nome" valor={pix.nome} />}
             <Linha rotulo="Chave Pix" valor={pix.chavePix} />
+            {!!pix.banco && <Linha rotulo="Banco" valor={pix.banco} />}
             <Linha rotulo="Valor" valor={formatarMoeda(pix.valor)} />
           </ThemedView>
 

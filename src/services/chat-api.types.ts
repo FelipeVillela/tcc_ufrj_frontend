@@ -14,6 +14,10 @@ export interface PixDados {
   nome: string | null;
   chavePix: string | null;
   valor: number | null;
+  /** Banco de destino, resolvido pela IA a partir da chave Pix. */
+  banco?: string | null;
+  /** Apelidos/parentesco para salvar o contato de forma localizável. */
+  nomesAlternativos?: string[] | null;
 }
 
 export interface ChatContext {
@@ -57,6 +61,10 @@ export interface PixPronto {
   nome: string;
   chavePix: string;
   valor: number;
+  /** Banco de destino, quando a IA o resolveu. */
+  banco?: string | null;
+  /** Apelidos/parentesco, para salvar o contato após o envio. */
+  nomesAlternativos?: string[] | null;
 }
 
 /** Resultado de um turno, já interpretado para a UI. */

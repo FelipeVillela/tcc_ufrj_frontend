@@ -16,6 +16,13 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 }
 
+/** Só aceita uma lista de strings; qualquer outra coisa vira null. */
+function lerListaDeTexto(bruto: unknown): string[] | null {
+  if (!Array.isArray(bruto)) return null;
+  const textos = bruto.filter((item): item is string => typeof item === 'string');
+  return textos.length > 0 ? textos : null;
+}
+
 function lerDados(bruto: unknown): PixDados | null {
   if (!ehObjeto(bruto)) return null;
 
@@ -28,6 +35,8 @@ function lerDados(bruto: unknown): PixDados | null {
     nome: typeof bruto.nome === 'string' ? bruto.nome : null,
     chavePix: typeof bruto.chavePix === 'string' ? bruto.chavePix : null,
     valor: typeof valor === 'number' && Number.isFinite(valor) ? valor : null,
+    banco: typeof bruto.banco === 'string' ? bruto.banco : null,
+    nomesAlternativos: lerListaDeTexto(bruto.nomesAlternativos),
   };
 }
 
@@ -44,12 +53,16 @@ export function interpretarResposta(bruto: unknown): ChatOutcome {
   }
 
   if (dados?.status === 'executar') {
-    const { nome, chavePix, valor } = dados;
+    const { nome, chavePix, valor, banco, nomesAlternativos } = dados;
 
     // 'executar' com campo faltando significa que o modelo finalizou sem ter
     // tudo o que precisa — não dá para seguir para a tela de envio.
     if (nome && chavePix && valor !== null) {
-      return { kind: 'execute', mensagem, pix: { nome, chavePix, valor } };
+      return {
+        kind: 'execute',
+        mensagem,
+        pix: { nome, chavePix, valor, banco, nomesAlternativos },
+      };
     }
 
     return {

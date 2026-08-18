@@ -15,6 +15,7 @@ import { useDadosPix } from '@/hooks/use-dados-pix';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/http';
+import { salvarContato } from '@/services/users-api';
 import { formatarMoeda } from '@/utils/moeda';
 
 /**
@@ -24,7 +25,7 @@ import { formatarMoeda } from '@/utils/moeda';
  */
 export default function AutorizarPixScreen() {
   const theme = useTheme();
-  const { confirmarSenha, debitar } = useAuth();
+  const { usuario, confirmarSenha, debitar } = useAuth();
   const pix = useDadosPix();
   const alturaTeclado = useKeyboardHeight();
 
@@ -47,6 +48,23 @@ export default function AutorizarPixScreen() {
       // é debitado só no app — e pode ficar negativo, por decisão de escopo.
       await new Promise((resolve) => setTimeout(resolve, 900));
       debitar(pix.valor);
+
+      // Concluído o envio, salva o destinatário na lista de contatos. Só o
+      // fluxo do chat resolve nome/banco/apelidos; o envio manual (só chave)
+      // não gera contato. É best-effort: falhar aqui não invalida o envio.
+      if (pix.nome && usuario) {
+        try {
+          await salvarContato(usuario.id, {
+            nome: pix.nome,
+            chavePix: pix.chavePix,
+            banco: pix.banco ?? null,
+            nomesAlternativos: pix.nomesAlternativos ?? null,
+          });
+        } catch {
+          // O contato não salvo não impede o comprovante de aparecer.
+        }
+      }
+
       setEnviado(true);
     } catch (e) {
       // O backend responde "E-mail ou senha inválidos." porque o /login também
